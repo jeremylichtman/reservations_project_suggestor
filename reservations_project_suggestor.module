@@ -2,36 +2,32 @@
 /**
  * @file
  * Code for the Reservations Project Suggestor. This module will use AJAX to 
-   populate a div of the user's projects upon selection fo the Admin project
-   field
+ * populate a div of the user's projects upon selection fo the Admin project
+ * field
  */
 
-define('ORGANIC_GROUPS_ADMIN_PROJECT_FIELD_ID', 
-       'edit-og-node1-und-0-admin-0-target-id');
+define('ORGANIC_GROUPS_ADMIN_PROJECT_FIELD_ID', 'edit-og-node1-und-0-admin-0-target-id');
 
 /**                                                                            
  * Implements hook_init().             
  */
 function reservations_project_suggestor_init() {
-  drupal_add_css(drupal_get_path('module', 'reservations_project_suggestor') .
-                 '/reservations_project_suggestor.css');
+  $module_path = drupal_get_path('module', 'reservations_project_suggestor');
+  drupal_add_css($module_path . '/reservations_project_suggestor.css');
 }
 
-function reservations_project_suggestor_form_alter(&$form, &$form_state, 
-						   $form_id) {
+/**
+ * Implements HOOK_form_alter().
+ */
+function reservations_project_suggestor_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id == 'reservations_reservation_node_form') {
     if (user_access('manage reservations')) {
-      $html = '<input type="button" id="rps_button" '. 
-	'value="Suggest Projects">'.
-      '<div id="project_suggestor_div"></div>';
-      
-
+      $html = '<input type="button" id="rps_button" class="form-submit" value="Suggest Projects">';
+      $html .= '<div id="project_suggestor_div"></div>';
       $form['og_node1']['#prefix'] = $html;
     }
-    
   }
 }
-
 
 /**
  * Implements hook_menu()
@@ -47,9 +43,15 @@ function reservations_project_suggestor_menu() {
   return $items;
 }
 
+/**
+ * AJAX callback to produce the list of projects.
+ */
 function reservations_project_suggestor_ajax_callback($user_name) {
+  // Add js functionality.
   $js_settings = drupal_add_js('sites/all/modules/contrib-cm/reservations_project_suggestor.js');
-
+  
+  // Initialize the output.
+  $html = '';
 
   $user = user_load_by_name($user_name);
   if ($user) {
@@ -65,20 +67,18 @@ function reservations_project_suggestor_ajax_callback($user_name) {
    
     $has_results = FALSE;
     while ($result = $results->fetchObject()) {
-      $has_results = TRUE;
       $gid = $result->gid;
       $project = node_load($gid);
       $status = $project->group_group[LANGUAGE_NONE][0]['value'];
-      $inactive_reason = 
-	$project->field_reason_not_active[LANGUAGE_NONE][0]['tid'];
 
-      if ($project && $status && !$inactive_reason) {
-	$html .= '<input type="button" id="rps_proj_button_'.$gid.'" '. 
-	  'class="rps_pick" value="Pick" name="'.$project->title.'"> ';
-	$html .= "<strong>".$project->title." ($gid) </strong><br/><br/>";
-	
+      if($project && $status) {
+        $has_results = TRUE;
+        $html .= '<input type="button" id="rps_proj_button_' . $gid . '" ' . 
+          'class="rps_pick form-submit" value="Pick" name="' . $project->title . '"> ';
+        $html .= "<strong>" . $project->title . " ($gid) </strong><br/><br/>";
       }
     }
+
     if ($has_results) {
       $output = "<br/><h2>Projects for <strong>$user_name</strong></h2>";
       $output .= $html;
@@ -89,5 +89,9 @@ function reservations_project_suggestor_ajax_callback($user_name) {
     $output = "<br/>No projects found for <strong>$user_name</strong>";
   }
 
-  return drupal_json_output(array('projects'=>$output));
+  return drupal_json_output(
+    array(
+      'projects' => $output,
+    )
+  );
 }
